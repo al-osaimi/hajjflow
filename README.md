@@ -28,20 +28,20 @@ The project is aligned with **Saudi Vision 2030** and **NSDAI** by demonstrating
 
 ### High-level Architecture
 
-![High_Level_Design](High_Level_Design.png)
+![High_Level_Design](High_Level_Design.png){: width="50%" }
 
 ---
 
 ## Data Flow (Heartbeat Payload)
 
-![DataFlow](DataFlow.png)
+![DataFlow](DataFlow.png){: width="50%" }
 
 
 ---
 
 ## Sequence Diagram (Edge → Server → Dashboard)
 
-![Sequence_Diagram](Sequence_Diagram.png)
+![Sequence_Diagram](Sequence_Diagram.png){: width="50%" }
 
 ---
 
@@ -189,6 +189,168 @@ npm run edge:all
 | ENABLE_CSRNET | 1 | Enable CSRNet |
 | CSRNET_WEIGHTS | weights/...pth | CSRNet weights |
 | HEARTBEAT_SEC | 2.0 | Send interval |
+
+<details>
+  <summary>Edge Client – Model Parameters (Tuning Guide)</summary>
+<br/>
+The edge client exposes several configurable parameters that directly affect the behavior of the computer vision models (YOLO and CSRNet). These parameters allow the system to be tuned for different crowd densities, camera setups, and hardware capabilities, balancing accuracy, speed, and stability.
+
+All parameters are provided through environment variables, allowing easy adjustment without modifying the source code.
+
+---
+
+### 1. YOLO Model Parameters (Person Detection)
+
+#### YOLO_MODEL
+Example:
+YOLO_MODEL=yolov8n.pt
+
+Description:
+Specifies the pretrained YOLO model used for person detection.
+
+Effect:
+- Smaller models (e.g., yolov8n) → faster inference, lower accuracy
+- Larger models (e.g., yolov8s, yolov8m) → slower inference, higher accuracy
+
+When to adjust:
+Use smaller models for CPU-only edge devices. Switch to larger models if people are frequently missed.
+
+---
+
+#### CONF – Detection Confidence Threshold
+CONF=0.25
+
+Description:
+Minimum confidence score required to keep a detection.
+
+Effect on output:
+- Lower values → more detections (higher recall, more false positives)
+- Higher values → fewer detections (cleaner output, risk of undercounting)
+
+Recommended range:
+0.15 – 0.35
+
+---
+
+#### IOU – Non-Maximum Suppression Threshold
+IOU=0.45
+
+Description:
+Controls how overlapping bounding boxes are merged.
+
+Effect on output:
+- Lower IOU → aggressive merging, possible undercounting
+- Higher IOU → more overlapping boxes kept, possible overcounting
+
+Recommended value:
+0.45
+
+---
+
+#### IMGSZ – Inference Image Size
+IMGSZ=640
+
+Description:
+Resolution used for YOLO inference.
+
+Effect:
+- Higher resolution → better detection of small or distant people, lower FPS
+- Lower resolution → faster inference, risk of missing people
+
+Recommended values:
+- CPU demo: 640
+- Accuracy-focused: 960
+
+---
+
+### 2. Dense Scene Detection (YOLO → CSRNet Switching)
+
+#### DENSE_COUNT_THR
+DENSE_COUNT_THR=160
+
+Description:
+If YOLO detects more people than this threshold, the scene is classified as dense.
+
+Effect:
+- Lower threshold → CSRNet activates earlier
+- Higher threshold → YOLO remains active longer
+
+Recommended range:
+120 – 200
+
+---
+
+#### DENSE_IOU_RATIO_THR
+DENSE_IOU_RATIO_THR=0.35
+
+Description:
+Measures how much detected bounding boxes overlap. High overlap indicates heavy crowd congestion.
+
+Effect:
+- Lower value → earlier switch to CSRNet
+- Higher value → later switch, YOLO used longer
+
+Recommended range:
+0.25 – 0.40
+
+---
+
+### 3. CSRNet Parameters (Density Estimation)
+
+#### ENABLE_CSRNET
+ENABLE_CSRNET=1
+
+Description:
+Enables or disables CSRNet for dense scene estimation.
+
+Effect:
+- 1 → CSRNet used for dense scenes
+- 0 → YOLO used exclusively
+
+---
+
+#### CSRNET_WEIGHTS
+CSRNET_WEIGHTS=weights/csrnet_shanghaitech.pth
+
+Description:
+Path to pretrained CSRNet weights.
+
+Effect:
+Weights must match the CSRNet architecture used in the code. Mismatched weights will cause CSRNet to fail and the system will fall back to YOLO.
+
+---
+
+### 4. Crowd Pressure Thresholds (Post-Processing)
+
+#### LOW_THR and MID_THR
+LOW_THR=60
+MID_THR=140
+
+Description:
+Thresholds for mapping crowd count to pressure levels.
+
+Effect:
+- Count < LOW_THR → LOW pressure
+- LOW_THR ≤ Count < MID_THR → MEDIUM pressure
+- Count ≥ MID_THR → HIGH pressure
+
+---
+
+### 5. Runtime Reporting Parameter
+
+#### HEARTBEAT_SEC
+HEARTBEAT_SEC=2.0
+
+Description:
+Interval (in seconds) at which the edge client sends updates to the server.
+
+Effect:
+- Lower value → faster dashboard updates, more network traffic
+- Higher value → smoother updates, slower reaction
+
+Recommended range:
+1.5 – 3.0
+</details>
 
 ---
 

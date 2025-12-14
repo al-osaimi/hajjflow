@@ -5,223 +5,302 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>HajjFlow Dashboard</title>
 
-  <!-- Tailwind CDN (fast for prototype/report). For prod, build it locally. -->
+  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Leaflet map -->
+  <!-- Heroicons (outline) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    #map { height: 520px; }
-    .glass { background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(10px); }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+    #map { height: 530px; }
+    .glass { background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(12px); }
+    .fixed-height { max-height: 530px; overflow-y: auto; }
+    .transition-all { transition: all 0.2s ease; }
   </style>
 </head>
 
-<body class="min-h-screen bg-slate-950 text-slate-100">
+<body class="min-h-screen bg-slate-950 text-slate-100 overflow-y-hidden">
   <div class="max-w-7xl mx-auto px-4 py-6">
 
     <!-- Header -->
     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-bold tracking-tight">HajjFlow</h1>
-        <p class="text-slate-400">Edge Devices • Crowd Metrics • Live Monitoring</p>
+      <div class="flex items-center gap-4">
+        <div class="p-3 bg-emerald-500/20 rounded-xl">
+          <i class="fa-solid fa-shield-halved text-2xl text-emerald-400"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-bold tracking-tight">HajjFlow</h1>
+          <p class="text-slate-400">Edge Devices • Crowd Metrics • Live Monitoring</p>
+        </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <div id="lastUpdate" class="text-xs text-slate-400"></div>
-        <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs bg-slate-800 border border-slate-700">
-          <span class="h-2 w-2 rounded-full bg-emerald-400" id="wsDot"></span>
-          Live
+      <div class="flex items-center gap-4">
+        <div id="lastUpdate" class="text-xs text-slate-400 flex items-center gap-2">
+          <i class="fa-regular fa-clock"></i>
+          <span></span>
+        </div>
+        <span class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs bg-slate-800 border border-slate-700">
+          <span class="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" id="wsDot"></span>
+          <span class="font-medium">Live</span>
         </span>
       </div>
     </div>
 
     <!-- KPIs -->
-    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
-      <div class="glass border border-slate-800 rounded-2xl p-4">
-        <div class="text-xs text-slate-400">Total Devices</div>
-        <div id="k_total" class="text-2xl font-semibold mt-1">—</div>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
+      <div class="glass border border-slate-800 rounded-2xl p-5 flex items-center gap-4">
+        <div class="p-3 bg-slate-800/50 rounded-xl">
+          <i class="fa-solid fa-server text-xl text-slate-400"></i>
+        </div>
+        <div>
+          <div class="text-sm text-slate-400">Total Devices</div>
+          <div id="k_total" class="text-2xl font-bold mt-1">—</div>
+        </div>
       </div>
-      <div class="glass border border-slate-800 rounded-2xl p-4">
-        <div class="text-xs text-slate-400">Online</div>
-        <div id="k_online" class="text-2xl font-semibold mt-1">—</div>
+
+      <div class="glass border border-slate-800 rounded-2xl p-5 flex items-center gap-4">
+        <div class="p-3 bg-emerald-500/20 rounded-xl">
+          <i class="fa-solid fa-circle-check text-xl text-emerald-400"></i>
+        </div>
+        <div>
+          <div class="text-sm text-slate-400">Online</div>
+          <div id="k_online" class="text-2xl font-bold mt-1 text-emerald-400">—</div>
+        </div>
       </div>
-      <div class="glass border border-slate-800 rounded-2xl p-4">
-        <div class="text-xs text-slate-400">Offline</div>
-        <div id="k_offline" class="text-2xl font-semibold mt-1">—</div>
+
+      <div class="glass border border-slate-800 rounded-2xl p-5 flex items-center gap-4">
+        <div class="p-3 bg-rose-500/20 rounded-xl">
+          <i class="fa-solid fa-circle-xmark text-xl text-rose-400"></i>
+        </div>
+        <div>
+          <div class="text-sm text-slate-400">Offline</div>
+          <div id="k_offline" class="text-2xl font-bold mt-1 text-rose-400">—</div>
+        </div>
       </div>
-      <div class="glass border border-slate-800 rounded-2xl p-4">
-        <div class="text-xs text-slate-400">Estimated Total Crowd</div>
-        <div id="k_sumCount" class="text-2xl font-semibold mt-1">—</div>
+
+      <div class="glass border border-slate-800 rounded-2xl p-5 flex items-center gap-4">
+        <div class="p-3 bg-amber-500/20 rounded-xl">
+          <i class="fa-solid fa-users text-xl text-amber-400"></i>
+        </div>
+        <div>
+          <div class="text-sm text-slate-400">Est. Crowd</div>
+          <div id="k_sumCount" class="text-2xl font-bold mt-1">—</div>
+        </div>
       </div>
-      <div class="glass border border-slate-800 rounded-2xl p-4">
-        <div class="text-xs text-slate-400">Avg YOLO-FPS / IoU / CPU / Temp</div>
-        <div id="k_perf" class="text-lg font-semibold mt-2">—</div>
+
+      <div class="glass border border-slate-800 rounded-2xl p-5">
+        <div class="text-sm text-slate-400 mb-2 flex items-center gap-2">
+          <i class="fa-solid fa-gauge-high"></i>
+          Performance Avg
+        </div>
+        <div id="k_perf" class="text-sm font-medium text-slate-300">—</div>
       </div>
     </div>
 
     <!-- Main layout -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
 
       <!-- Device list -->
-      <div class="glass border border-slate-800 rounded-2xl p-4 lg:col-span-1">
-        <div class="flex items-center justify-between gap-2">
-          <h2 class="font-semibold">Devices</h2>
-          <div class="flex items-center gap-2">
-            <select id="sortBy" class="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm outline-none">
+      <div class="glass border border-slate-800 rounded-2xl p-5 lg:col-span-1 fixed-height">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold flex items-center gap-2">
+            <i class="fa-solid fa-list-ul"></i>
+            Devices
+          </h2>
+        </div>
+
+        <div class="flex flex-col gap-3">
+          <div class="flex gap-3">
+            <div class="relative flex-1">
+              <input id="search" class="w-full bg-slate-900/70 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm outline-none focus:border-slate-600 transition-all"
+                     placeholder="Search device / zone..." />
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"></i>
+            </div>
+            <select id="sortBy" class="bg-slate-900/70 border border-slate-800 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-slate-600">
               <option value="pressure">Sort: Pressure</option>
               <option value="count">Sort: Count</option>
               <option value="name">Sort: Name</option>
               <option value="seen">Sort: Last Seen</option>
             </select>
-            <button id="fitMap"
-              class="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm hover:bg-slate-800">
-              Fit Map
+          </div>
+
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2 text-sm text-slate-300 select-none cursor-pointer">
+              <input id="onlyOnline" type="checkbox" class="w-4 h-4 accent-emerald-500 rounded">
+              Online only
+            </label>
+          </div>
+
+          <div class="flex gap-2">
+            <button class="filter flex-1 px-4 py-2 rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-800 transition-all flex items-center justify-center gap-2 text-sm ring-2 ring-slate-400" data-mode="all">
+              <i class="fa-solid fa-filter"></i> All
+            </button>
+            <button class="filter flex-1 px-4 py-2 rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-800 transition-all flex items-center justify-center gap-2 text-sm" data-mode="online">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Online
+            </button>
+            <button class="filter flex-1 px-4 py-2 rounded-xl border border-slate-800 bg-slate-900/70 hover:bg-slate-800 transition-all flex items-center justify-center gap-2 text-sm" data-mode="offline">
+              <span class="w-2 h-2 rounded-full bg-rose-400"></span> Offline
             </button>
           </div>
         </div>
 
-        <div class="mt-3 flex items-center gap-2">
-          <input id="search" class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm outline-none"
-                 placeholder="Search device / zone..." />
-          <label class="flex items-center gap-2 text-xs text-slate-300 select-none">
-            <input id="onlyOnline" type="checkbox" class="accent-emerald-500">
-            Online only
-          </label>
-        </div>
-
-        <div class="mt-3 flex gap-2 text-xs">
-          <button class="filter px-3 py-1 rounded-full border border-slate-800 bg-slate-900 ring-2 ring-slate-400" data-mode="all">All</button>
-          <button class="filter px-3 py-1 rounded-full border border-slate-800 bg-slate-900" data-mode="online">Online</button>
-          <button class="filter px-3 py-1 rounded-full border border-slate-800 bg-slate-900" data-mode="offline">Offline</button>
-        </div>
-
-        <div id="deviceList" class="mt-3 space-y-2 max-h-[620px] overflow-auto pr-1"></div>
+        <div id="deviceList" class="mt-4 space-y-3"></div>
       </div>
 
       <!-- Map -->
-      <div class="glass border border-slate-800 rounded-2xl p-4 lg:col-span-2">
-        <div class="flex items-center justify-between">
-          <h2 class="font-semibold">Live Map</h2>
-          <div class="text-xs text-slate-400">Click a device card or marker to focus</div>
+      <div class="glass border border-slate-800 rounded-2xl p-5 lg:col-span-2 fixed-height">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold flex items-center gap-2">
+            <i class="fa-solid fa-map-location-dot"></i>
+            Live Map
+          </h2>
+          <button id="fitMap" class="group rounded-xl border border-slate-800 bg-slate-900/70 px-4 py-2.5 text-sm hover:bg-slate-800 flex items-center gap-2 transition-all">
+            <i class="fa-solid fa-expand group-hover:scale-110 transition-transform"></i>
+            Fit View
+          </button>
         </div>
+
         <div id="map" class="mt-3 rounded-2xl overflow-hidden border border-slate-800"></div>
 
         <!-- Legend -->
-        <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-          <div class="flex flex-wrap gap-2">
-            <span class="px-2 py-1 rounded-full border border-slate-800 bg-slate-900/50">
-              <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1"></span> LOW
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-4 text-sm">
+          <div class="flex flex-wrap gap-3">
+            <span class="px-3 py-1.5 rounded-full border border-slate-800 bg-slate-900/50 flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-full bg-emerald-400"></span> LOW
             </span>
-            <span class="px-2 py-1 rounded-full border border-slate-800 bg-slate-900/50">
-              <span class="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1"></span> MEDIUM
+            <span class="px-3 py-1.5 rounded-full border border-slate-800 bg-slate-900/50 flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-full bg-amber-400"></span> MEDIUM
             </span>
-            <span class="px-2 py-1 rounded-full border border-slate-800 bg-slate-900/50">
-              <span class="inline-block w-2 h-2 rounded-full bg-rose-400 mr-1"></span> HIGH
+            <span class="px-3 py-1.5 rounded-full border border-slate-800 bg-slate-900/50 flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-full bg-rose-400"></span> HIGH
             </span>
-            <span class="px-2 py-1 rounded-full border border-slate-800 bg-slate-900/50">
-              <span class="inline-block w-2 h-2 rounded-full bg-slate-400 mr-1"></span> OFFLINE
+            <span class="px-3 py-1.5 rounded-full border border-slate-800 bg-slate-900/50 flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-full bg-slate-400"></span> OFFLINE
             </span>
           </div>
-          <div id="mapHint" class="text-slate-400">Tip: click a marker to open device details</div>
+          <div class="text-xs text-slate-400 flex items-center gap-2">
+            <i class="fa-solid fa-info-circle"></i>
+            Click marker for details
+          </div>
         </div>
 
         <!-- Small charts -->
-        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
-            <div class="text-xs text-slate-400 mb-2">Online vs Offline</div>
+        <div class="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+            <div class="text-sm text-slate-400 mb-3 flex items-center gap-2">
+              <i class="fa-solid fa-chart-pie"></i>
+              Online vs Offline
+            </div>
             <canvas id="chartDonut" height="160"></canvas>
           </div>
-          <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
-            <div class="text-xs text-slate-400 mb-2">Top Zones (device count)</div>
+          <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+            <div class="text-sm text-slate-400 mb-3 flex items-center gap-2">
+              <i class="fa-solid fa-location-dot"></i>
+              Top Zones
+            </div>
             <canvas id="chartZones" height="160"></canvas>
           </div>
         </div>
       </div>
     </div>
-
   </div>
 
   <!-- Drawer (device details) -->
-  <div id="drawerBackdrop" class="fixed inset-0 bg-black/50 hidden"></div>
-  <aside id="drawer" class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-slate-950 border-l border-slate-800 translate-x-full transition-transform">
-    <div class="p-5">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <div id="d_title" class="text-lg font-semibold">Device</div>
-          <div id="d_sub" class="text-xs text-slate-400 mt-1">—</div>
+  <div id="drawerBackdrop" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-40"></div>
+  <aside id="drawer" class="fixed top-0 right-0 h-full w-full sm:w-[500px] bg-slate-950/95 border-l border-slate-800 translate-x-full transition-transform duration-300 z-50 shadow-2xl">
+    <div class="p-6 h-full overflow-y-auto">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-4">
+          <div class="p-3 bg-slate-800/50 rounded-xl">
+            <i class="fa-solid fa-server text-2xl text-slate-400"></i>
+          </div>
+          <div>
+            <div id="d_title" class="text-xl font-bold">Device</div>
+            <div id="d_sub" class="text-sm text-slate-400 mt-1">—</div>
+          </div>
         </div>
-        <button id="closeDrawer" class="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm">Close</button>
+        <button id="closeDrawer" class="p-3 rounded-xl bg-slate-900/70 border border-slate-800 hover:bg-slate-800 transition-all">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
       </div>
 
       <!-- Main metrics -->
       <div class="grid grid-cols-2 gap-3 mt-4">
-        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
-          <div class="text-xs text-slate-400">Final Count</div>
-          <div id="d_count" class="text-2xl font-semibold mt-1">—</div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+          <div class="text-xs text-slate-400 flex items-center gap-2"><i class="fa-solid fa-users"></i> Final Count</div>
+          <div id="d_count" class="text-2xl font-semibold mt-2">—</div>
         </div>
-        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
-          <div class="text-xs text-slate-400">YOLO FPS</div>
-          <div id="d_fps" class="text-2xl font-semibold mt-1">—</div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+          <div class="text-xs text-slate-400 flex items-center gap-2"><i class="fa-solid fa-gauge"></i> YOLO FPS</div>
+          <div id="d_fps" class="text-2xl font-semibold mt-2">—</div>
         </div>
-        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
-          <div class="text-xs text-slate-400">Method</div>
-          <div id="d_method" class="text-xl font-semibold mt-1">—</div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+          <div class="text-xs text-slate-400 flex items-center gap-2"><i class="fa-solid fa-brain"></i> Method</div>
+          <div id="d_method" class="text-xl font-semibold mt-2">—</div>
         </div>
-        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
-          <div class="text-xs text-slate-400">Pressure</div>
-          <div class="mt-2">
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+          <div class="text-xs text-slate-400 flex items-center gap-2"><i class="fa-solid fa-exclamation-triangle"></i> Pressure</div>
+          <div class="mt-3">
             <span id="d_pressure_badge" class="px-3 py-1 rounded-full text-xs border border-slate-700 bg-slate-900">—</span>
           </div>
         </div>
       </div>
 
       <!-- Secondary metrics -->
-      <div class="grid grid-cols-2 gap-3 mt-3">
-        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+      <div class="grid grid-cols-2 gap-3 mt-4">
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
           <div class="text-xs text-slate-400">YOLO Count</div>
-          <div id="d_yolo_count" class="text-xl font-semibold mt-1">—</div>
+          <div id="d_yolo_count" class="text-xl font-semibold mt-2">—</div>
         </div>
-        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
           <div class="text-xs text-slate-400">Dense Scene</div>
-          <div id="d_dense" class="text-xl font-semibold mt-1">—</div>
+          <div id="d_dense" class="text-xl font-semibold mt-2">—</div>
         </div>
-        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
           <div class="text-xs text-slate-400">IoU Ratio</div>
-          <div id="d_iou" class="text-xl font-semibold mt-1">—</div>
+          <div id="d_iou" class="text-xl font-semibold mt-2">—</div>
         </div>
-        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
           <div class="text-xs text-slate-400">CSR Time</div>
-          <div id="d_csr_time" class="text-xl font-semibold mt-1">—</div>
+          <div id="d_csr_time" class="text-xl font-semibold mt-2">—</div>
         </div>
       </div>
 
       <!-- Health metrics -->
-      <div class="grid grid-cols-2 gap-3 mt-3">
-        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
-          <div class="text-xs text-slate-400">CPU</div>
-          <div id="d_cpu" class="text-xl font-semibold mt-1">—</div>
+      <div class="grid grid-cols-2 gap-3 mt-4">
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+          <div class="text-xs text-slate-400 flex items-center gap-2"><i class="fa-solid fa-microchip"></i> CPU</div>
+          <div id="d_cpu" class="text-xl font-semibold mt-2">—</div>
         </div>
-        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
-          <div class="text-xs text-slate-400">Temp</div>
-          <div id="d_temp" class="text-xl font-semibold mt-1">—</div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+          <div class="text-xs text-slate-400 flex items-center gap-2"><i class="fa-solid fa-temperature-high"></i> Temp</div>
+          <div id="d_temp" class="text-xl font-semibold mt-2">—</div>
         </div>
       </div>
 
-      <div class="mt-3 bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
-        <div class="text-xs text-slate-400">CSR Error</div>
-        <div id="d_csr_err" class="text-sm text-slate-200 mt-1 break-words">—</div>
+      <div class="mt-4 bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+        <div class="text-xs text-slate-400 flex items-center gap-2"><i class="fa-solid fa-bug"></i> CSR Error</div>
+        <div id="d_csr_err" class="text-sm text-slate-200 mt-2 break-words">—</div>
       </div>
 
-      <div class="mt-4 bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
-        <div class="text-xs text-slate-400 mb-2">Recent Metrics</div>
+      <div class="mt-6 bg-slate-900/50 border border-slate-800 rounded-2xl p-4">
+        <div class="text-sm text-slate-400 mb-3 flex items-center gap-2"><i class="fa-solid fa-chart-line"></i> Recent Metrics</div>
         <canvas id="chartDevice" height="180"></canvas>
       </div>
 
-      <div class="mt-4 text-xs text-slate-400 space-y-1">
+      <div class="mt-6 text-sm text-slate-400 space-y-2">
         <div><span class="text-slate-300">Zone:</span> <span id="d_zone">—</span></div>
         <div><span class="text-slate-300">Location:</span> <span id="d_loc">—</span></div>
         <div><span class="text-slate-300">Last Seen:</span> <span id="d_seen">—</span></div>
@@ -231,7 +310,6 @@
   </aside>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
     // ---------- State ----------
@@ -239,7 +317,7 @@
     let filterMode = "all";
     let selectedDeviceId = null;
 
-    // ---------- Socket (reconnect-safe) ----------
+    // ---------- Socket ----------
     const socket = io({
       transports: ["websocket","polling"],
       reconnection: true,
@@ -255,14 +333,14 @@
     joinDashboard();
 
     socket.on("connect", () => {
-      document.getElementById("wsDot").className = "h-2 w-2 rounded-full bg-emerald-400";
+      document.getElementById("wsDot").className = "h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse";
       joinDashboard();
     });
     socket.on("disconnect", () => {
-      document.getElementById("wsDot").className = "h-2 w-2 rounded-full bg-rose-400";
+      document.getElementById("wsDot").className = "h-2.5 w-2.5 rounded-full bg-rose-400";
     });
 
-    // REST fallback (prevents stuck UI)
+    // REST fallback
     async function fetchSnapshotFallback() {
       try {
         const r = await fetch("/api/devices", { cache: "no-store" });
@@ -286,10 +364,10 @@
 
     function pressureColor(p) {
       const P = String(p || "").toUpperCase();
-      if (P === "HIGH") return "#fb7185";    // rose-400
-      if (P === "MEDIUM") return "#fbbf24";  // amber-400
-      if (P === "LOW") return "#34d399";     // emerald-400
-      return "#94a3b8";                      // slate-400
+      if (P === "HIGH") return "#fb7185";
+      if (P === "MEDIUM") return "#fbbf24";
+      if (P === "LOW") return "#34d399";
+      return "#94a3b8";
     }
 
     function makeDotIcon(color, isSelected=false) {
@@ -362,19 +440,19 @@
     document.getElementById("fitMap").addEventListener("click", () => {
       const pts = DEVICES.filter(d => d.location).map(d => [d.location.lat, d.location.lng]);
       if (!pts.length) return;
-      map.fitBounds(L.latLngBounds(pts).pad(0.15));
+      map.fitBounds(L.latLngBounds(pts).pad(0.2));
     });
 
     // ---------- Charts ----------
     const donut = new Chart(document.getElementById("chartDonut"), {
       type: "doughnut",
-      data: { labels: ["Online", "Offline"], datasets: [{ data: [0,0] }] },
+      data: { labels: ["Online", "Offline"], datasets: [{ data: [0,0], backgroundColor: ["#34d399", "#f87171"] }] },
       options: { plugins: { legend: { labels: { color: "#cbd5e1" } } } }
     });
 
     const zonesBar = new Chart(document.getElementById("chartZones"), {
       type: "bar",
-      data: { labels: [], datasets: [{ label: "Devices", data: [] }] },
+      data: { labels: [], datasets: [{ label: "Devices", data: [], backgroundColor: "#10b981" }] },
       options: {
         plugins: { legend: { labels: { color: "#cbd5e1" } } },
         scales: {
@@ -389,9 +467,9 @@
       data: {
         labels: [],
         datasets: [
-          { label: "Count", data: [] },
-          { label: "YOLO FPS", data: [] },
-          { label: "IoU Ratio", data: [] },
+          { label: "Count", data: [], borderColor: "#34d399", tension: 0.3 },
+          { label: "YOLO FPS", data: [], borderColor: "#fbbf24", tension: 0.3 },
+          { label: "IoU Ratio", data: [], borderColor: "#60a5fa", tension: 0.3 },
         ]
       },
       options: {
@@ -412,6 +490,7 @@
 
     sortEl.addEventListener("change", renderList);
     onlyOnlineEl.addEventListener("change", renderList);
+    searchEl.addEventListener("input", renderList);
 
     function pressureRank(p) {
       const P = String(p || "").toUpperCase();
@@ -432,11 +511,11 @@
     function timeAgo(ms) {
       if (!ms) return "—";
       const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
-      if (s < 60) return `${s}s`;
+      if (s < 60) return `${s}s ago`;
       const m = Math.floor(s/60);
-      if (m < 60) return `${m}m`;
+      if (m < 60) return `${m}m ago`;
       const h = Math.floor(m/60);
-      return `${h}h`;
+      return `${h}h ago`;
     }
 
     function passesFilter(d) {
@@ -457,7 +536,7 @@
       const avgTemp = k.avgTemp ?? "—";
 
       document.getElementById("k_perf").textContent =
-        `${avgYoloFps} yolo-fps • IoU ${avgIoU} • ${avgCpu}% • ${avgTemp}°C`;
+        `${avgYoloFps} yolo-fps • IoU ${avgIoU} • ${avgCpu}% CPU • ${avgTemp}°C`;
 
       donut.data.datasets[0].data = [k.online || 0, k.offline || 0];
       donut.update();
@@ -485,7 +564,6 @@
           (d.zone || "").toLowerCase().includes(q)
         );
 
-      // sort
       const sortBy = sortEl.value;
       filtered.sort((a, b) => {
         const onlineCmp = Number(b.online) - Number(a.online);
@@ -507,7 +585,6 @@
         return (a.name || "").localeCompare(b.name || "");
       });
 
-      // group by zone
       const groups = {};
       for (const d of filtered) {
         const z = d.zone || "Unassigned";
@@ -539,56 +616,56 @@
           const temp = Number.isFinite(m.temp) ? `${Math.round(m.temp)}°C` : "—";
 
           const onlineBadge = d.online
-            ? `<span class="px-2 py-1 rounded-full text-[11px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-200">ONLINE</span>`
-            : `<span class="px-2 py-1 rounded-full text-[11px] bg-rose-500/15 border border-rose-500/30 text-rose-200">OFFLINE</span>`;
+            ? `<span class="px-2 py-1 rounded-full text-[11px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-200 flex items-center gap-1"><i class="fa-solid fa-circle-dot text-xs"></i>ONLINE</span>`
+            : `<span class="px-2 py-1 rounded-full text-[11px] bg-rose-500/15 border border-rose-500/30 text-rose-200 flex items-center gap-1"><i class="fa-solid fa-circle-dot text-xs"></i>OFFLINE</span>`;
 
           return `
-            <button class="w-full text-left rounded-2xl border border-slate-800 ${bg} hover:bg-slate-900/70 transition p-3 ${ring} ${dim}"
+            <button class="w-full text-left rounded-2xl border border-slate-800 ${bg} hover:bg-slate-900/70 transition p-4 ${ring} ${dim}"
                     onclick="selectDevice('${escapeAttr(d.deviceId)}'); setMarkerSelected('${escapeAttr(d.deviceId)}');">
-              <div class="flex items-start justify-between gap-2">
+              <div class="flex items-start justify-between gap-3">
                 <div>
-                  <div class="font-semibold">${escapeHtml(d.name || d.deviceId)}</div>
+                  <div class="font-semibold text-base">${escapeHtml(d.name || d.deviceId)}</div>
                   <div class="text-xs text-slate-400 mt-1">${escapeHtml(d.deviceId)}</div>
                 </div>
                 ${onlineBadge}
               </div>
 
-              <div class="mt-2 flex flex-wrap gap-2 text-[11px]">
-                <span class="px-2 py-1 rounded-full border ${badgePressure(pressure)}">Pressure: ${escapeHtml(pressure)}</span>
-                <span class="px-2 py-1 rounded-full border border-slate-800 bg-slate-950/30">Method: ${escapeHtml(method)}</span>
-                <span class="px-2 py-1 rounded-full border border-slate-800 bg-slate-950/30">Dense: ${escapeHtml(dense)}</span>
+              <div class="mt-3 flex flex-wrap gap-2 text-[11px]">
+                <span class="px-3 py-1 rounded-full border ${badgePressure(pressure)}">${escapeHtml(pressure)}</span>
+                <span class="px-3 py-1 rounded-full border border-slate-800 bg-slate-950/30">Method: ${escapeHtml(method)}</span>
+                <span class="px-3 py-1 rounded-full border border-slate-800 bg-slate-950/30">Dense: ${escapeHtml(dense)}</span>
               </div>
 
-              <div class="grid grid-cols-3 gap-2 mt-3 text-xs">
-                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
-                  <div class="text-slate-400">Final Count</div><div class="font-semibold">${count}</div>
+              <div class="grid grid-cols-3 gap-3 mt-4 text-sm">
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+                  <div class="text-slate-400 text-xs">Final Count</div><div class="font-bold">${count}</div>
                 </div>
-                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
-                  <div class="text-slate-400">YOLO FPS</div><div class="font-semibold">${yoloFps}</div>
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+                  <div class="text-slate-400 text-xs">YOLO FPS</div><div class="font-bold">${yoloFps}</div>
                 </div>
-                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
-                  <div class="text-slate-400">IoU</div><div class="font-semibold">${iou}</div>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-3 gap-2 mt-2 text-xs">
-                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
-                  <div class="text-slate-400">YOLO Count</div><div class="font-semibold">${yoloCount}</div>
-                </div>
-                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
-                  <div class="text-slate-400">CSR Time</div><div class="font-semibold">${csrMs}</div>
-                </div>
-                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
-                  <div class="text-slate-400">CPU/Temp</div><div class="font-semibold">${cpu}/${temp}</div>
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+                  <div class="text-slate-400 text-xs">IoU</div><div class="font-bold">${iou}</div>
                 </div>
               </div>
 
-              <div class="grid grid-cols-2 gap-2 mt-2 text-xs">
-                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
+              <div class="grid grid-cols-3 gap-3 mt-3 text-sm">
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+                  <div class="text-slate-400 text-xs">YOLO Count</div><div class="font-bold">${yoloCount}</div>
+                </div>
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+                  <div class="text-slate-400 text-xs">CSR Time</div><div class="font-bold">${csrMs}</div>
+                </div>
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+                  <div class="text-slate-400 text-xs">CPU / Temp</div><div class="font-bold">${cpu} / ${temp}</div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 mt-3 text-xs">
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
                   <div class="text-slate-400">Seen</div><div class="font-semibold">${timeAgo(d.lastSeen)}</div>
                 </div>
-                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
-                  <div class="text-slate-400">CSR Error</div><div class="font-semibold">${escapeHtml(m.csr_error || "—")}</div>
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+                  <div class="text-slate-400">CSR Error</div><div class="font-semibold truncate">${escapeHtml(m.csr_error || "—")}</div>
                 </div>
               </div>
             </button>
@@ -597,16 +674,18 @@
 
         return `
           <details class="rounded-2xl border border-slate-800 bg-slate-900/20 overflow-hidden" open>
-            <summary class="cursor-pointer select-none px-3 py-3 flex items-center justify-between">
-              <div class="font-semibold">${escapeHtml(zone)}</div>
+            <summary class="cursor-pointer select-none px-4 py-3 flex items-center justify-between hover:bg-slate-800/30 transition">
+              <div class="font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-location-dot text-sm"></i>
+                ${escapeHtml(zone)}
+              </div>
               <div class="text-xs text-slate-400">${onlineCount}/${items.length} online</div>
             </summary>
-            <div class="p-3 space-y-2">${cards}</div>
+            <div class="p-4 space-y-3">${cards}</div>
           </details>
         `;
       }).join("");
 
-      // markers + zone chart
       DEVICES.forEach(upsertMarker);
       renderZoneChart(DEVICES);
     }
@@ -620,7 +699,6 @@
         renderList();
       });
     });
-    searchEl.addEventListener("input", renderList);
 
     // ---------- Drawer ----------
     const drawer = document.getElementById("drawer");
@@ -666,7 +744,7 @@
     function setPressureBadge(p) {
       const el = document.getElementById("d_pressure_badge");
       el.textContent = p || "—";
-      el.className = `px-3 py-1 rounded-full text-xs border ${badgePressure(p)}`;
+      el.className = `px-4 py-2 rounded-full text-sm font-medium border ${badgePressure(p)}`;
     }
 
     function fillDrawer(d, online) {
@@ -676,14 +754,12 @@
       const m = d.metrics || {};
       document.getElementById("d_count").textContent = fmt(m.count);
       document.getElementById("d_fps").textContent = fmt(m.yolo_fps ?? m.fps);
-
       document.getElementById("d_method").textContent = m.method || "—";
       setPressureBadge(m.pressure);
 
       document.getElementById("d_yolo_count").textContent = fmt(m.yolo_count);
       document.getElementById("d_dense").textContent = m.dense_scene === true ? "YES" : (m.dense_scene === false ? "NO" : "—");
       document.getElementById("d_iou").textContent = fmt(m.iou_ratio);
-
       document.getElementById("d_csr_time").textContent =
         Number.isFinite(m.csr_time_ms) ? `${Math.round(m.csr_time_ms)} ms` : "—";
 
@@ -696,7 +772,6 @@
       document.getElementById("d_seen").textContent = new Date(d.lastSeen).toLocaleString();
       document.getElementById("d_ip").textContent = d.ip || "—";
 
-      // chart from history
       const hist = (d.history || []).slice(-40);
       deviceLine.data.labels = hist.map(h => new Date((h.ts || 0) * 1000).toLocaleTimeString());
       deviceLine.data.datasets[0].data = hist.map(h => (Number.isFinite(h.count) ? h.count : null));
@@ -723,7 +798,7 @@
       DEVICES = devices || [];
       renderKPIs(kpis || {});
       renderList();
-      lastUpdateEl.textContent = `Last update: ${new Date(ts || Date.now()).toLocaleTimeString()}`;
+      lastUpdateEl.querySelector("span").textContent = `Last update: ${new Date(ts || Date.now()).toLocaleTimeString()}`;
     });
   </script>
 </body>

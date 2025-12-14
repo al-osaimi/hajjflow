@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import os
+import psutil
 import time
 import json
 import traceback
 from typing import Dict, Any, Optional
+import requests
 
 import cv2
 import numpy as np
@@ -90,7 +92,6 @@ def draw_overlay(frame, text_lines):
 
 # =========================
 # CSRNet minimal model (VGG front + dilated backend)
-# NOTE: must match your downloaded weights repo
 # =========================
 class CSRNet(nn.Module):
     def __init__(self):
@@ -222,7 +223,24 @@ def csrnet_count(model: nn.Module, frame_bgr: np.ndarray) -> float:
         dm = model(x)
         return float(dm.sum().item())
 
-
+def get_temp(lat, lon):
+    
+    payload = {
+    "latitude": lat,
+    "longitude": lon,
+    "current_weather": "true"
+    }
+    
+    response = requests.get("https://api.open-meteo.com/v1/forecast", params=payload)
+    data = response.json()
+    
+    if "current_weather" in data:
+        temp = data["current_weather"]["temperature"]
+        unit = data["current_weather_units"]["temperature"]
+        return temp
+    else:
+        return 0
+     
 # =========================
 # Main
 # =========================
@@ -359,6 +377,8 @@ def main():
                     "iou_ratio": round(iou_ratio, 3),
                     "csr_time_ms": csr_time_ms,
                     "csr_error": csr_err,
+                    "cpu": psutil.cpu_percent(interval=1),
+                    "temp": 21 #get_temp(LAT, LNG),
                 }
             }
 
