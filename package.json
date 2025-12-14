@@ -1,0 +1,26 @@
+{
+  "name": "hajjflow",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "edge": "python3 ./edge_client/edge_client.py",
+    "edge:yolo": "VIDEO_PATH=edge_client/videos/tawaf.mp4 ENABLE_CSRNET=0 python3 ./edge_client/edge_client.py",
+    "edge:csrnet": "VIDEO_PATH=edge_client/videos/tawaf.mp4 CSRNET_WEIGHTS=edge_client/weihgts/CSRNet_Modified.pth ENABLE_CSRNET=1 python3 ./edge_client/edge_client.py",
+    "edge:tawaf": "DEBUG_VIEW=1 DEVICE_ID=EDGE-TAWAF DEVICE_NAME=\"Tawaf Camera\" ZONE=\"Masjid Al-Haram (Tawaf)\" LAT=21.422487 LNG=39.826206 VIDEO_PATH=edge_client/videos/tawaf.mp4 python3 ./edge_client/edge_client.py",
+    "edge:mina": "DEBUG_VIEW=1 DEVICE_ID=EDGE-MINA DEVICE_NAME=\"Mina Jamarat Camera\" ZONE=\"Mina – Jamarat\" LAT=21.413333 LNG=39.873056 VIDEO_PATH=edge_client/videos/jamarat.mp4 python3 ./edge_client/edge_client.py",
+    "edge:arafat": "DEBUG_VIEW=1 DEVICE_ID=EDGE-ARAFAT DEVICE_NAME=\"Arafat Camera\" ZONE=\"Arafat\" LAT=21.354167 LNG=39.984722 VIDEO_PATH=edge_client/videos/arafat.mp4 python3 ./edge_client/edge_client.py",
+    "edge:all": "DEBUG_VIEW=1 DEVICE_ID=EDGE-TAWAF DEVICE_NAME=\"Tawaf Camera\" ZONE=\"Masjid Al-Haram (Tawaf)\" LAT=21.422487 LNG=39.826206 VIDEO_PATH=edge_client/videos/tawaf.mp4 python3 ./edge_client/edge_client.py & DEBUG_VIEW=1 DEVICE_ID=EDGE-MINA DEVICE_NAME=\"Mina Jamarat Camera\" ZONE=\"Mina – Jamarat\" LAT=21.413333 LNG=39.873056 VIDEO_PATH=edge_client/videos/jamarat.mp4 python3 ./edge_client/edge_client.py & DEBUG_VIEW=1 DEVICE_ID=EDGE-ARAFAT DEVICE_NAME=\"Arafat Camera\" ZONE=\"Arafat\" LAT=21.354167 LNG=39.984722 VIDEO_PATH=edge_client/videos/arafat.mp4 python3 ./edge_client/edge_client.py"
+
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "ejs": "^3.1.10",
+    "express": "^5.2.1",
+    "socketio": "^1.0.0"
+  }
+}

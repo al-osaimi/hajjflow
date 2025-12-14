@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HajjFlow Dashboard</title>
+
+  <!-- Tailwind CDN (fast for prototype/report). For prod, build it locally. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    #map { height: 520px; }
+    .glass { background: rgba(15, 23, 42, 0.55); backdrop-filter: blur(10px); }
+  </style>
+</head>
+
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="max-w-7xl mx-auto px-4 py-6">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight">HajjFlow</h1>
+        <p class="text-slate-400">Edge Devices • Crowd Metrics • Live Monitoring</p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div id="lastUpdate" class="text-xs text-slate-400"></div>
+        <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs bg-slate-800 border border-slate-700">
+          <span class="h-2 w-2 rounded-full bg-emerald-400" id="wsDot"></span>
+          Live
+        </span>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+      <div class="glass border border-slate-800 rounded-2xl p-4">
+        <div class="text-xs text-slate-400">Total Devices</div>
+        <div id="k_total" class="text-2xl font-semibold mt-1">—</div>
+      </div>
+      <div class="glass border border-slate-800 rounded-2xl p-4">
+        <div class="text-xs text-slate-400">Online</div>
+        <div id="k_online" class="text-2xl font-semibold mt-1">—</div>
+      </div>
+      <div class="glass border border-slate-800 rounded-2xl p-4">
+        <div class="text-xs text-slate-400">Offline</div>
+        <div id="k_offline" class="text-2xl font-semibold mt-1">—</div>
+      </div>
+      <div class="glass border border-slate-800 rounded-2xl p-4">
+        <div class="text-xs text-slate-400">Estimated Total Crowd</div>
+        <div id="k_sumCount" class="text-2xl font-semibold mt-1">—</div>
+      </div>
+      <div class="glass border border-slate-800 rounded-2xl p-4">
+        <div class="text-xs text-slate-400">Avg YOLO-FPS / IoU / CPU / Temp</div>
+        <div id="k_perf" class="text-lg font-semibold mt-2">—</div>
+      </div>
+    </div>
+
+    <!-- Main layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+
+      <!-- Device list -->
+      <div class="glass border border-slate-800 rounded-2xl p-4 lg:col-span-1">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="font-semibold">Devices</h2>
+          <div class="flex items-center gap-2">
+            <select id="sortBy" class="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm outline-none">
+              <option value="pressure">Sort: Pressure</option>
+              <option value="count">Sort: Count</option>
+              <option value="name">Sort: Name</option>
+              <option value="seen">Sort: Last Seen</option>
+            </select>
+            <button id="fitMap"
+              class="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm hover:bg-slate-800">
+              Fit Map
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-3 flex items-center gap-2">
+          <input id="search" class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm outline-none"
+                 placeholder="Search device / zone..." />
+          <label class="flex items-center gap-2 text-xs text-slate-300 select-none">
+            <input id="onlyOnline" type="checkbox" class="accent-emerald-500">
+            Online only
+          </label>
+        </div>
+
+        <div class="mt-3 flex gap-2 text-xs">
+          <button class="filter px-3 py-1 rounded-full border border-slate-800 bg-slate-900 ring-2 ring-slate-400" data-mode="all">All</button>
+          <button class="filter px-3 py-1 rounded-full border border-slate-800 bg-slate-900" data-mode="online">Online</button>
+          <button class="filter px-3 py-1 rounded-full border border-slate-800 bg-slate-900" data-mode="offline">Offline</button>
+        </div>
+
+        <div id="deviceList" class="mt-3 space-y-2 max-h-[620px] overflow-auto pr-1"></div>
+      </div>
+
+      <!-- Map -->
+      <div class="glass border border-slate-800 rounded-2xl p-4 lg:col-span-2">
+        <div class="flex items-center justify-between">
+          <h2 class="font-semibold">Live Map</h2>
+          <div class="text-xs text-slate-400">Click a device card or marker to focus</div>
+        </div>
+        <div id="map" class="mt-3 rounded-2xl overflow-hidden border border-slate-800"></div>
+
+        <!-- Legend -->
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="flex flex-wrap gap-2">
+            <span class="px-2 py-1 rounded-full border border-slate-800 bg-slate-900/50">
+              <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 mr-1"></span> LOW
+            </span>
+            <span class="px-2 py-1 rounded-full border border-slate-800 bg-slate-900/50">
+              <span class="inline-block w-2 h-2 rounded-full bg-amber-400 mr-1"></span> MEDIUM
+            </span>
+            <span class="px-2 py-1 rounded-full border border-slate-800 bg-slate-900/50">
+              <span class="inline-block w-2 h-2 rounded-full bg-rose-400 mr-1"></span> HIGH
+            </span>
+            <span class="px-2 py-1 rounded-full border border-slate-800 bg-slate-900/50">
+              <span class="inline-block w-2 h-2 rounded-full bg-slate-400 mr-1"></span> OFFLINE
+            </span>
+          </div>
+          <div id="mapHint" class="text-slate-400">Tip: click a marker to open device details</div>
+        </div>
+
+        <!-- Small charts -->
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+            <div class="text-xs text-slate-400 mb-2">Online vs Offline</div>
+            <canvas id="chartDonut" height="160"></canvas>
+          </div>
+          <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+            <div class="text-xs text-slate-400 mb-2">Top Zones (device count)</div>
+            <canvas id="chartZones" height="160"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Drawer (device details) -->
+  <div id="drawerBackdrop" class="fixed inset-0 bg-black/50 hidden"></div>
+  <aside id="drawer" class="fixed top-0 right-0 h-full w-full sm:w-[480px] bg-slate-950 border-l border-slate-800 translate-x-full transition-transform">
+    <div class="p-5">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div id="d_title" class="text-lg font-semibold">Device</div>
+          <div id="d_sub" class="text-xs text-slate-400 mt-1">—</div>
+        </div>
+        <button id="closeDrawer" class="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm">Close</button>
+      </div>
+
+      <!-- Main metrics -->
+      <div class="grid grid-cols-2 gap-3 mt-4">
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+          <div class="text-xs text-slate-400">Final Count</div>
+          <div id="d_count" class="text-2xl font-semibold mt-1">—</div>
+        </div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+          <div class="text-xs text-slate-400">YOLO FPS</div>
+          <div id="d_fps" class="text-2xl font-semibold mt-1">—</div>
+        </div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+          <div class="text-xs text-slate-400">Method</div>
+          <div id="d_method" class="text-xl font-semibold mt-1">—</div>
+        </div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+          <div class="text-xs text-slate-400">Pressure</div>
+          <div class="mt-2">
+            <span id="d_pressure_badge" class="px-3 py-1 rounded-full text-xs border border-slate-700 bg-slate-900">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Secondary metrics -->
+      <div class="grid grid-cols-2 gap-3 mt-3">
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+          <div class="text-xs text-slate-400">YOLO Count</div>
+          <div id="d_yolo_count" class="text-xl font-semibold mt-1">—</div>
+        </div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+          <div class="text-xs text-slate-400">Dense Scene</div>
+          <div id="d_dense" class="text-xl font-semibold mt-1">—</div>
+        </div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+          <div class="text-xs text-slate-400">IoU Ratio</div>
+          <div id="d_iou" class="text-xl font-semibold mt-1">—</div>
+        </div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+          <div class="text-xs text-slate-400">CSR Time</div>
+          <div id="d_csr_time" class="text-xl font-semibold mt-1">—</div>
+        </div>
+      </div>
+
+      <!-- Health metrics -->
+      <div class="grid grid-cols-2 gap-3 mt-3">
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+          <div class="text-xs text-slate-400">CPU</div>
+          <div id="d_cpu" class="text-xl font-semibold mt-1">—</div>
+        </div>
+        <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+          <div class="text-xs text-slate-400">Temp</div>
+          <div id="d_temp" class="text-xl font-semibold mt-1">—</div>
+        </div>
+      </div>
+
+      <div class="mt-3 bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+        <div class="text-xs text-slate-400">CSR Error</div>
+        <div id="d_csr_err" class="text-sm text-slate-200 mt-1 break-words">—</div>
+      </div>
+
+      <div class="mt-4 bg-slate-900/50 border border-slate-800 rounded-2xl p-3">
+        <div class="text-xs text-slate-400 mb-2">Recent Metrics</div>
+        <canvas id="chartDevice" height="180"></canvas>
+      </div>
+
+      <div class="mt-4 text-xs text-slate-400 space-y-1">
+        <div><span class="text-slate-300">Zone:</span> <span id="d_zone">—</span></div>
+        <div><span class="text-slate-300">Location:</span> <span id="d_loc">—</span></div>
+        <div><span class="text-slate-300">Last Seen:</span> <span id="d_seen">—</span></div>
+        <div><span class="text-slate-300">IP:</span> <span id="d_ip">—</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <script>
+    // ---------- State ----------
+    let DEVICES = [];
+    let filterMode = "all";
+    let selectedDeviceId = null;
+
+    // ---------- Socket (reconnect-safe) ----------
+    const socket = io({
+      transports: ["websocket","polling"],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 800,
+      reconnectionDelayMax: 3000
+    });
+
+    function joinDashboard() {
+      socket.emit("dashboard:join");
+      if (selectedDeviceId) socket.emit("device:join", { deviceId: selectedDeviceId });
+    }
+    joinDashboard();
+
+    socket.on("connect", () => {
+      document.getElementById("wsDot").className = "h-2 w-2 rounded-full bg-emerald-400";
+      joinDashboard();
+    });
+    socket.on("disconnect", () => {
+      document.getElementById("wsDot").className = "h-2 w-2 rounded-full bg-rose-400";
+    });
+
+    // REST fallback (prevents stuck UI)
+    async function fetchSnapshotFallback() {
+      try {
+        const r = await fetch("/api/devices", { cache: "no-store" });
+        const j = await r.json();
+        DEVICES = j.devices || [];
+        renderKPIs(j.kpis || {});
+        renderList();
+        lastUpdateEl.textContent = `Last update: ${new Date(j.ts || Date.now()).toLocaleTimeString()} (REST fallback)`;
+      } catch (e) {}
+    }
+    setInterval(() => {
+      if (!socket.connected) fetchSnapshotFallback();
+    }, 4000);
+
+    // ---------- Map ----------
+    const map = L.map("map").setView([21.4225, 39.8262], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+
+    const markers = new Map();
+    let selectedMarkerId = null;
+
+    function pressureColor(p) {
+      const P = String(p || "").toUpperCase();
+      if (P === "HIGH") return "#fb7185";    // rose-400
+      if (P === "MEDIUM") return "#fbbf24";  // amber-400
+      if (P === "LOW") return "#34d399";     // emerald-400
+      return "#94a3b8";                      // slate-400
+    }
+
+    function makeDotIcon(color, isSelected=false) {
+      const size = isSelected ? 16 : 12;
+      const border = isSelected ? "2px" : "1px";
+      const html = `
+        <div style="
+          width:${size}px;height:${size}px;border-radius:999px;
+          background:${color};
+          border:${border} solid rgba(15,23,42,0.9);
+          box-shadow: 0 0 0 3px rgba(148,163,184,0.18);
+        "></div>`;
+      return L.divIcon({ className: "", html, iconSize: [size, size], iconAnchor: [size/2, size/2] });
+    }
+
+    function markerLabel(d) {
+      const m = d.metrics || {};
+      const pressure = m.pressure || "—";
+      const method = m.method || "—";
+      const dense = m.dense_scene === true ? "YES" : (m.dense_scene === false ? "NO" : "—");
+      const csrMs = Number.isFinite(m.csr_time_ms) ? `${Math.round(m.csr_time_ms)} ms` : "—";
+      return `
+        <b>${escapeHtml(d.name || d.deviceId)}</b><br/>
+        ${escapeHtml(d.zone || "")}<br/>
+        Count: ${fmt(m.count)} • YOLO Count: ${fmt(m.yolo_count)}<br/>
+        YOLO FPS: ${fmt(m.yolo_fps ?? m.fps)} • IoU: ${fmt(m.iou_ratio)}<br/>
+        Pressure: ${escapeHtml(pressure)} • Method: ${escapeHtml(method)} • Dense: ${escapeHtml(dense)}<br/>
+        CSR Time: ${escapeHtml(csrMs)}
+      `;
+    }
+
+    function setMarkerSelected(deviceId) {
+      selectedMarkerId = deviceId;
+      for (const [id, mk] of markers.entries()) {
+        const d = DEVICES.find(x => x.deviceId === id);
+        const online = !!d?.online;
+        const color = online ? pressureColor(d?.metrics?.pressure) : "#94a3b8";
+        mk.setIcon(makeDotIcon(color, id === selectedMarkerId));
+      }
+    }
+
+    function upsertMarker(d) {
+      if (!d.location) return;
+
+      const key = d.deviceId;
+      const latlng = [d.location.lat, d.location.lng];
+
+      const online = !!d.online;
+      const color = online ? pressureColor(d.metrics?.pressure) : "#94a3b8";
+
+      if (!markers.has(key)) {
+        const mk = L.marker(latlng, { icon: makeDotIcon(color, false) })
+          .addTo(map)
+          .bindPopup(markerLabel(d));
+
+        mk.on("click", () => {
+          selectDevice(key);
+          setMarkerSelected(key);
+        });
+
+        markers.set(key, mk);
+      } else {
+        const mk = markers.get(key);
+        mk.setLatLng(latlng);
+        mk.setPopupContent(markerLabel(d));
+        mk.setIcon(makeDotIcon(color, key === selectedMarkerId));
+      }
+    }
+
+    document.getElementById("fitMap").addEventListener("click", () => {
+      const pts = DEVICES.filter(d => d.location).map(d => [d.location.lat, d.location.lng]);
+      if (!pts.length) return;
+      map.fitBounds(L.latLngBounds(pts).pad(0.15));
+    });
+
+    // ---------- Charts ----------
+    const donut = new Chart(document.getElementById("chartDonut"), {
+      type: "doughnut",
+      data: { labels: ["Online", "Offline"], datasets: [{ data: [0,0] }] },
+      options: { plugins: { legend: { labels: { color: "#cbd5e1" } } } }
+    });
+
+    const zonesBar = new Chart(document.getElementById("chartZones"), {
+      type: "bar",
+      data: { labels: [], datasets: [{ label: "Devices", data: [] }] },
+      options: {
+        plugins: { legend: { labels: { color: "#cbd5e1" } } },
+        scales: {
+          x: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(148,163,184,0.15)" } },
+          y: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(148,163,184,0.15)" } },
+        }
+      }
+    });
+
+    const deviceLine = new Chart(document.getElementById("chartDevice"), {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [
+          { label: "Count", data: [] },
+          { label: "YOLO FPS", data: [] },
+          { label: "IoU Ratio", data: [] },
+        ]
+      },
+      options: {
+        plugins: { legend: { labels: { color: "#cbd5e1" } } },
+        scales: {
+          x: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(148,163,184,0.15)" } },
+          y: { ticks: { color: "#94a3b8" }, grid: { color: "rgba(148,163,184,0.15)" } },
+        }
+      }
+    });
+
+    // ---------- UI ----------
+    const listEl = document.getElementById("deviceList");
+    const searchEl = document.getElementById("search");
+    const lastUpdateEl = document.getElementById("lastUpdate");
+    const sortEl = document.getElementById("sortBy");
+    const onlyOnlineEl = document.getElementById("onlyOnline");
+
+    sortEl.addEventListener("change", renderList);
+    onlyOnlineEl.addEventListener("change", renderList);
+
+    function pressureRank(p) {
+      const P = String(p || "").toUpperCase();
+      if (P === "HIGH") return 3;
+      if (P === "MEDIUM") return 2;
+      if (P === "LOW") return 1;
+      return 0;
+    }
+
+    function badgePressure(p) {
+      const P = String(p || "").toUpperCase();
+      if (P === "HIGH") return `bg-rose-500/15 border-rose-500/30 text-rose-200`;
+      if (P === "MEDIUM") return `bg-amber-500/15 border-amber-500/30 text-amber-200`;
+      if (P === "LOW") return `bg-emerald-500/15 border-emerald-500/30 text-emerald-200`;
+      return `bg-slate-900 border-slate-800 text-slate-200`;
+    }
+
+    function timeAgo(ms) {
+      if (!ms) return "—";
+      const s = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+      if (s < 60) return `${s}s`;
+      const m = Math.floor(s/60);
+      if (m < 60) return `${m}m`;
+      const h = Math.floor(m/60);
+      return `${h}h`;
+    }
+
+    function passesFilter(d) {
+      if (filterMode === "online") return d.online;
+      if (filterMode === "offline") return !d.online;
+      return true;
+    }
+
+    function renderKPIs(k) {
+      document.getElementById("k_total").textContent = k.total ?? "—";
+      document.getElementById("k_online").textContent = k.online ?? "—";
+      document.getElementById("k_offline").textContent = k.offline ?? "—";
+      document.getElementById("k_sumCount").textContent = (k.sumCount ?? "—");
+
+      const avgYoloFps = k.avgYoloFps ?? "—";
+      const avgIoU = k.avgIoURatio ?? "—";
+      const avgCpu = k.avgCpu ?? "—";
+      const avgTemp = k.avgTemp ?? "—";
+
+      document.getElementById("k_perf").textContent =
+        `${avgYoloFps} yolo-fps • IoU ${avgIoU} • ${avgCpu}% • ${avgTemp}°C`;
+
+      donut.data.datasets[0].data = [k.online || 0, k.offline || 0];
+      donut.update();
+    }
+
+    function renderZoneChart(devs) {
+      const zones = {};
+      devs.forEach(d => { zones[d.zone || "Unassigned"] = (zones[d.zone || "Unassigned"] || 0) + 1; });
+      const items = Object.entries(zones).sort((a,b)=>b[1]-a[1]).slice(0,6);
+      zonesBar.data.labels = items.map(x=>x[0]);
+      zonesBar.data.datasets[0].data = items.map(x=>x[1]);
+      zonesBar.update();
+    }
+
+    function renderList() {
+      const q = (searchEl.value || "").toLowerCase().trim();
+      const onlyOnline = !!onlyOnlineEl.checked;
+
+      let filtered = DEVICES
+        .filter(d => !onlyOnline || d.online)
+        .filter(d => passesFilter(d))
+        .filter(d =>
+          (d.name || "").toLowerCase().includes(q) ||
+          (d.deviceId || "").toLowerCase().includes(q) ||
+          (d.zone || "").toLowerCase().includes(q)
+        );
+
+      // sort
+      const sortBy = sortEl.value;
+      filtered.sort((a, b) => {
+        const onlineCmp = Number(b.online) - Number(a.online);
+        if (onlineCmp) return onlineCmp;
+
+        if (sortBy === "pressure") {
+          const pr = pressureRank(b.metrics?.pressure) - pressureRank(a.metrics?.pressure);
+          if (pr) return pr;
+          return (Number(b.metrics?.count || 0) - Number(a.metrics?.count || 0));
+        }
+        if (sortBy === "count") {
+          const c = (Number(b.metrics?.count || 0) - Number(a.metrics?.count || 0));
+          if (c) return c;
+          return (a.name || "").localeCompare(b.name || "");
+        }
+        if (sortBy === "seen") {
+          return (Number(b.lastSeen || 0) - Number(a.lastSeen || 0));
+        }
+        return (a.name || "").localeCompare(b.name || "");
+      });
+
+      // group by zone
+      const groups = {};
+      for (const d of filtered) {
+        const z = d.zone || "Unassigned";
+        if (!groups[z]) groups[z] = [];
+        groups[z].push(d);
+      }
+      const zoneNames = Object.keys(groups).sort((a,b)=>a.localeCompare(b));
+
+      listEl.innerHTML = zoneNames.map(zone => {
+        const items = groups[zone];
+        const onlineCount = items.filter(x => x.online).length;
+
+        const cards = items.map(d => {
+          const m = d.metrics || {};
+          const isSelected = d.deviceId === selectedDeviceId;
+          const dim = d.online ? "" : "opacity-70";
+          const ring = isSelected ? "ring-2 ring-emerald-400/60" : "";
+          const bg = isSelected ? "bg-slate-900/80" : "bg-slate-900/40";
+
+          const count = fmt(m.count);
+          const yoloFps = fmt(m.yolo_fps ?? m.fps);
+          const yoloCount = fmt(m.yolo_count);
+          const iou = fmt(m.iou_ratio);
+          const dense = m.dense_scene === true ? "YES" : (m.dense_scene === false ? "NO" : "—");
+          const method = m.method || "—";
+          const pressure = m.pressure || "—";
+          const csrMs = Number.isFinite(m.csr_time_ms) ? `${Math.round(m.csr_time_ms)} ms` : "—";
+          const cpu = Number.isFinite(m.cpu) ? `${Math.round(m.cpu)}%` : "—";
+          const temp = Number.isFinite(m.temp) ? `${Math.round(m.temp)}°C` : "—";
+
+          const onlineBadge = d.online
+            ? `<span class="px-2 py-1 rounded-full text-[11px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-200">ONLINE</span>`
+            : `<span class="px-2 py-1 rounded-full text-[11px] bg-rose-500/15 border border-rose-500/30 text-rose-200">OFFLINE</span>`;
+
+          return `
+            <button class="w-full text-left rounded-2xl border border-slate-800 ${bg} hover:bg-slate-900/70 transition p-3 ${ring} ${dim}"
+                    onclick="selectDevice('${escapeAttr(d.deviceId)}'); setMarkerSelected('${escapeAttr(d.deviceId)}');">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <div class="font-semibold">${escapeHtml(d.name || d.deviceId)}</div>
+                  <div class="text-xs text-slate-400 mt-1">${escapeHtml(d.deviceId)}</div>
+                </div>
+                ${onlineBadge}
+              </div>
+
+              <div class="mt-2 flex flex-wrap gap-2 text-[11px]">
+                <span class="px-2 py-1 rounded-full border ${badgePressure(pressure)}">Pressure: ${escapeHtml(pressure)}</span>
+                <span class="px-2 py-1 rounded-full border border-slate-800 bg-slate-950/30">Method: ${escapeHtml(method)}</span>
+                <span class="px-2 py-1 rounded-full border border-slate-800 bg-slate-950/30">Dense: ${escapeHtml(dense)}</span>
+              </div>
+
+              <div class="grid grid-cols-3 gap-2 mt-3 text-xs">
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
+                  <div class="text-slate-400">Final Count</div><div class="font-semibold">${count}</div>
+                </div>
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
+                  <div class="text-slate-400">YOLO FPS</div><div class="font-semibold">${yoloFps}</div>
+                </div>
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
+                  <div class="text-slate-400">IoU</div><div class="font-semibold">${iou}</div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-2 mt-2 text-xs">
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
+                  <div class="text-slate-400">YOLO Count</div><div class="font-semibold">${yoloCount}</div>
+                </div>
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
+                  <div class="text-slate-400">CSR Time</div><div class="font-semibold">${csrMs}</div>
+                </div>
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
+                  <div class="text-slate-400">CPU/Temp</div><div class="font-semibold">${cpu}/${temp}</div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 mt-2 text-xs">
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
+                  <div class="text-slate-400">Seen</div><div class="font-semibold">${timeAgo(d.lastSeen)}</div>
+                </div>
+                <div class="bg-slate-950/40 border border-slate-800 rounded-xl p-2">
+                  <div class="text-slate-400">CSR Error</div><div class="font-semibold">${escapeHtml(m.csr_error || "—")}</div>
+                </div>
+              </div>
+            </button>
+          `;
+        }).join("");
+
+        return `
+          <details class="rounded-2xl border border-slate-800 bg-slate-900/20 overflow-hidden" open>
+            <summary class="cursor-pointer select-none px-3 py-3 flex items-center justify-between">
+              <div class="font-semibold">${escapeHtml(zone)}</div>
+              <div class="text-xs text-slate-400">${onlineCount}/${items.length} online</div>
+            </summary>
+            <div class="p-3 space-y-2">${cards}</div>
+          </details>
+        `;
+      }).join("");
+
+      // markers + zone chart
+      DEVICES.forEach(upsertMarker);
+      renderZoneChart(DEVICES);
+    }
+
+    // filters
+    document.querySelectorAll(".filter").forEach(btn => {
+      btn.addEventListener("click", () => {
+        filterMode = btn.dataset.mode;
+        document.querySelectorAll(".filter").forEach(b => b.classList.remove("ring-2","ring-slate-400"));
+        btn.classList.add("ring-2","ring-slate-400");
+        renderList();
+      });
+    });
+    searchEl.addEventListener("input", renderList);
+
+    // ---------- Drawer ----------
+    const drawer = document.getElementById("drawer");
+    const backdrop = document.getElementById("drawerBackdrop");
+    document.getElementById("closeDrawer").onclick = closeDrawer;
+    backdrop.onclick = closeDrawer;
+
+    function openDrawer() {
+      backdrop.classList.remove("hidden");
+      drawer.classList.remove("translate-x-full");
+    }
+    function closeDrawer() {
+      backdrop.classList.add("hidden");
+      drawer.classList.add("translate-x-full");
+      selectedDeviceId = null;
+      selectedMarkerId = null;
+      setMarkerSelected(null);
+      renderList();
+    }
+
+    window.selectDevice = async (deviceId) => {
+      selectedDeviceId = deviceId;
+      socket.emit("device:join", { deviceId });
+      setMarkerSelected(deviceId);
+
+      const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}`, { cache: "no-store" });
+      const json = await res.json();
+      fillDrawer(json.device, json.online);
+      openDrawer();
+      renderList();
+
+      if (json.device.location) {
+        map.setView([json.device.location.lat, json.device.location.lng], 16);
+        const mk = markers.get(deviceId);
+        if (mk) mk.openPopup();
+      }
+    };
+
+    socket.on("device:update", ({ device, online }) => {
+      if (device?.deviceId === selectedDeviceId) fillDrawer(device, online);
+    });
+
+    function setPressureBadge(p) {
+      const el = document.getElementById("d_pressure_badge");
+      el.textContent = p || "—";
+      el.className = `px-3 py-1 rounded-full text-xs border ${badgePressure(p)}`;
+    }
+
+    function fillDrawer(d, online) {
+      document.getElementById("d_title").textContent = d.name || d.deviceId;
+      document.getElementById("d_sub").textContent = `${online ? "ONLINE" : "OFFLINE"} • ${d.deviceId}`;
+
+      const m = d.metrics || {};
+      document.getElementById("d_count").textContent = fmt(m.count);
+      document.getElementById("d_fps").textContent = fmt(m.yolo_fps ?? m.fps);
+
+      document.getElementById("d_method").textContent = m.method || "—";
+      setPressureBadge(m.pressure);
+
+      document.getElementById("d_yolo_count").textContent = fmt(m.yolo_count);
+      document.getElementById("d_dense").textContent = m.dense_scene === true ? "YES" : (m.dense_scene === false ? "NO" : "—");
+      document.getElementById("d_iou").textContent = fmt(m.iou_ratio);
+
+      document.getElementById("d_csr_time").textContent =
+        Number.isFinite(m.csr_time_ms) ? `${Math.round(m.csr_time_ms)} ms` : "—";
+
+      document.getElementById("d_cpu").textContent = Number.isFinite(m.cpu) ? `${Math.round(m.cpu)}%` : "—";
+      document.getElementById("d_temp").textContent = Number.isFinite(m.temp) ? `${Math.round(m.temp)}°C` : "—";
+      document.getElementById("d_csr_err").textContent = m.csr_error || "—";
+
+      document.getElementById("d_zone").textContent = d.zone || "Unassigned";
+      document.getElementById("d_loc").textContent = d.location ? `${d.location.lat.toFixed(5)}, ${d.location.lng.toFixed(5)}` : "—";
+      document.getElementById("d_seen").textContent = new Date(d.lastSeen).toLocaleString();
+      document.getElementById("d_ip").textContent = d.ip || "—";
+
+      // chart from history
+      const hist = (d.history || []).slice(-40);
+      deviceLine.data.labels = hist.map(h => new Date((h.ts || 0) * 1000).toLocaleTimeString());
+      deviceLine.data.datasets[0].data = hist.map(h => (Number.isFinite(h.count) ? h.count : null));
+      deviceLine.data.datasets[1].data = hist.map(h => (Number.isFinite(h.yolo_fps) ? h.yolo_fps : null));
+      deviceLine.data.datasets[2].data = hist.map(h => (Number.isFinite(h.iou_ratio) ? h.iou_ratio : null));
+      deviceLine.update();
+
+      setMarkerSelected(d.deviceId);
+    }
+
+    // ---------- Helpers ----------
+    function fmt(v) {
+      return Number.isFinite(v) ? (Math.round(v * 10) / 10) : "—";
+    }
+    function escapeHtml(s) {
+      return String(s || "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));
+    }
+    function escapeAttr(s) {
+      return String(s || "").replace(/'/g, "\\'");
+    }
+
+    // ---------- Main Update ----------
+    socket.on("dashboard:update", ({ devices, kpis, ts }) => {
+      DEVICES = devices || [];
+      renderKPIs(kpis || {});
+      renderList();
+      lastUpdateEl.textContent = `Last update: ${new Date(ts || Date.now()).toLocaleTimeString()}`;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+ultralytics
+python-socketio
+opencv-python
+numpy
+torch
+torchvision

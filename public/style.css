@@ -1,0 +1,15 @@
+body { font-family: system-ui, Arial; margin: 0; background: #0b1220; color: #e8eefc; }
+.topbar { padding: 16px 20px; display:flex; justify-content:space-between; align-items:center; background:#101a33; }
+.grid { display:grid; grid-template-columns: 1fr 1.2fr; gap:16px; padding:16px; }
+.panel { background:#0f1830; border:1px solid #1b2a52; border-radius:14px; padding:14px; }
+#map { height: 560px; border-radius: 12px; overflow:hidden; }
+.cards { display:grid; gap:12px; }
+.card { padding:12px; border-radius:12px; border:1px solid #223462; background:#0c1530; }
+.card.ok { border-color:#1f6b3a; }
+.card.off { border-color:#6b1f1f; opacity:.75; }
+.row { display:flex; justify-content:space-between; align-items:center; }
+.badge { padding:4px 8px; border-radius:999px; background:#1b2a52; font-size:12px; }
+.kpis { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:10px; }
+.kpis label { display:block; font-size:12px; opacity:.7; }
+.kpis span { font-weight:700; }
+.meta { margin-top:6px; opacity:.8; }
