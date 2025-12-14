@@ -1,6 +1,6 @@
 const express = require("express");
 const http = require("http");
-const socketio = require("socket.io");
+const { Server } = require("socket.io");
 const path = require("path");
 
 const PORT = process.env.PORT || 5000;
@@ -19,7 +19,7 @@ const OFFLINE_PURGE_MS = Number(process.env.OFFLINE_PURGE_MS || 0);
 
 const app = express();
 const server = http.createServer(app);
-const io = socketio(server, {
+const io = new Server(server, {
   cors: { origin: "*" },
   transports: ["websocket", "polling"],
 });
@@ -275,6 +275,7 @@ if (OFFLINE_PURGE_MS > 0) {
 
 // --- Socket.IO ---
 io.on("connection", (socket) => {
+  console.log(`Socket connected: ${socket.id}`);
   const ua = socket.handshake.headers["user-agent"] || "";
   const ip = socket.handshake.address;
 
